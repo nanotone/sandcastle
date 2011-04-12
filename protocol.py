@@ -1,6 +1,5 @@
 import json
 import struct
-import sys
 
 def _writeObj():
 	sys = __import__('sys') # hide the persistent sys in a closure
@@ -14,15 +13,7 @@ def _writeObj():
 			sys.__stdout__.write('\n')
 		sys.__stdout__.flush()
 	return writeObj
+
 writeObj = _writeObj()
 
-class Stdout(object):
-	def write(self, s): writeObj({'msg': 'eval', 'result': s})
-sys.stdout = Stdout()
-
-class Stderr(object):
-	def write(self, s): writeObj({'msg': 'error', 'str': s})
-sys.stderr = Stderr()
-
 del _writeObj
-del sys
