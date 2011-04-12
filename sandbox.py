@@ -1,32 +1,10 @@
-import json
-import struct
-import sys
-
-_stdout = sys.stdout
-_stderr = sys.stderr
-def writeStr(s):
-	_stdout.write(struct.pack('!H', len(s)))
-	_stdout.write(s)
-	_stdout.flush()
-class Stdout(object):
-	def write(self, s): writeStr(json.dumps({'msg': 'eval', 'result': s}))
-class Stderr(object):
-	def write(self, s): writeStr(json.dumps({'msg': 'error', 'str': s}))
-#sys.stdout = Stdout()
-#sys.stderr = Stderr()
-
-
-
 import ctypes
 import linecache
-import time
+import sys
 import traceback
 import types
-try:
-	import cStringIO as StringIO
-except:
-	import StringIO
 
+import sandcastle
 
 #
 # new __import__
@@ -44,6 +22,11 @@ def delDictAttr(obj, name):
 			del dictPtr.contents.value[name]
 
 delDictAttr(type, '__subclasses__')
+
+delDictAttr(types.CodeType, 'co_code')
+delDictAttr(types.CodeType, 'co_consts')
+delDictAttr(types.CodeType, 'co_names')
+delDictAttr(types.CodeType, 'co_varnames')
 
 delDictAttr(types.FrameType, 'f_builtins')
 #delDictAttr(types.FrameType, 'f_code')
@@ -68,9 +51,10 @@ allowedModules = set((
 	'pickle', 'cPickle', 'copy_reg', 'marshal', # 11 # no dbm stuff, no shelve
 	'hashlib', 'hmac', # 14
 	'time', # 15
-	'base64', 'binascii', # 18
+	'json', 'base64', 'binascii', # 18
 	'xml',
 	#'traceback', # super dangerous, never allow this
+	'sandcastle',
 ))
 restrictedModules = {
 	'types': (
@@ -126,7 +110,7 @@ loadRestrictedModule(sys, newSys, restrictedModules['sys'])
 newSys.modules = {'sys': newSys}
 
 oldImport = __builtins__.__import__
-def newImport(name, g=None, l=None, fromlist=None, level=-1):
+def __import__(name, g=None, l=None, fromlist=None, level=-1):
 	tokens = name.split('.')
 	module = newSys.modules.get(tokens[0])
 	if not module:
@@ -148,7 +132,6 @@ def newImport(name, g=None, l=None, fromlist=None, level=-1):
 		except:
 			raise ImportError("No module named " + token)
 	return module
-newImport.func_name = '__import__'
 
 
 #
@@ -165,6 +148,9 @@ blockedFileAttrs = ('__class__', '__getattribute__', '__iter__')
 
 def restrictedOpen(filename, mode='r', bufsize=-1):
 	#print "restrictedOpen", filename
+	if type(mode) not in (str, unicode):
+		raise TypeError("file() argument 2 must be string, not " + type(mode).__name__)
+	mode = str(mode)
 	if filename != 'clientScript.py' or 'w' in mode or 'a' in mode:
 		raise IOError(13, "Permission denied: '%s'" % filename)
 	_file = open(filename, mode, bufsize)
@@ -224,11 +210,12 @@ class Restricted(object):
 	@staticmethod
 	def __exit__(exc_type, exc_value, tb):
 		if not tb: return
-		try:
-			traceback.print_exception(exc_type, exc_value, tb, file=TracebackPrinter())
-		finally:
-			exc_type = exc_value = tb = None
-		return True
+		if exc_type is not SystemExit:
+			try:
+				traceback.print_exception(exc_type, exc_value, tb, file=TracebackPrinter())
+			finally:
+				exc_type = exc_value = tb = None
+			return True
 restricted = Restricted()
 
 
@@ -245,7 +232,7 @@ def notImplemented(*args, **kwargs): raise NotImplementedError
 for disabledFunc in ('compile', 'execfile', 'help', 'input', 'raw_input', 'reload'):
 	setattr(restrictedBuiltins, disabledFunc, notImplemented)
 
-restrictedBuiltins.__import__ = newImport
+restrictedBuiltins.__import__ = __import__
 restrictedBuiltins.open = restrictedOpen
 
 restrictedScope = {
@@ -258,14 +245,13 @@ restrictedScope = {
 
 with restricted:
 	execfile('clientScript.py', restrictedScope)
-exit()
-raise IOError
 del restrictedScope['__file__']
 
 print "Python", sys.version
 newSys.ps1 = '>>> '
 newSys.ps2 = '... '
 
+import json
 while True:
 	rawLen = sys.stdin.read(2)
 	if len(rawLen) < 2: break
