@@ -254,8 +254,9 @@ restrictedScope = {
 	'__package__': None
 }
 
-with restricted:
-	execfile(execFilename, restrictedScope)
+if execFilename:
+	with restricted:
+		execfile(execFilename, restrictedScope)
 if not interactive:
 	exit()
 
