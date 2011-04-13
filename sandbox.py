@@ -1,6 +1,15 @@
+import sys
+
+execFilename = sys.argv[-1]
+if not (execFilename[0].isalpha() and execFilename.endswith('.py')):
+	execFilename = None
+interactive = ('--interactive' in sys.argv)
+
+if not (execFilename or interactive): exit()
+
+
 import ctypes
 import linecache
-import sys
 import traceback
 import types
 
@@ -153,7 +162,7 @@ def restrictedOpen(filename, mode='r', bufsize=-1):
 	if type(mode) not in (str, unicode):
 		raise TypeError("file() argument 2 must be string, not " + type(mode).__name__)
 	mode = str(mode)
-	if filename != 'clientScript.py' or 'w' in mode or 'a' in mode:
+	if filename != execFilename or 'w' in mode or 'a' in mode:
 		raise IOError(13, "Permission denied: '%s'" % filename)
 	_file = open(filename, mode, bufsize)
 	def __getattribute__(self, name):
@@ -205,7 +214,7 @@ class TracebackPrinter(object):
 		if self.skipLines:
 			self.skipLines -= 1
 		else:
-			sys.stdout.write(s)
+			sys.stderr.write(s)
 class Restricted(object):
 	@staticmethod
 	def __enter__(): pass
@@ -240,13 +249,15 @@ restrictedBuiltins.open = restrictedOpen
 restrictedScope = {
 	'__builtins__': restrictedBuiltins,
 	'__name__': '__main__',
-	'__file__': 'clientScript.py',
+	'__file__': execFilename,
 	'__doc__': None,
 	'__package__': None
 }
 
 with restricted:
-	execfile('clientScript.py', restrictedScope)
+	execfile(execFilename, restrictedScope)
+if not interactive:
+	exit()
 del restrictedScope['__file__']
 
 print "Python", sys.version
