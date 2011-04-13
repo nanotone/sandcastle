@@ -176,6 +176,7 @@ restrictedOpen.func_name = 'open'
 
 
 # our replacement for traceback.print_tb which doesn't use FrameType.f_globals
+# copied shamelessly from traceback.py, 4-space indenting and all
 def print_tb(tb, limit=None, file=None):
     """Print up to 'limit' stack trace entries from the traceback 'tb'.
 
@@ -223,6 +224,8 @@ class Restricted(object):
 		if not tb: return
 		if exc_type is not SystemExit:
 			try:
+				if issubclass(exc_type, SyntaxError) and isinstance(exc_value, tuple) and len(exc_value) == 2:
+					exc_value = SyntaxError(*exc_value)
 				traceback.print_exception(exc_type, exc_value, tb, file=TracebackPrinter())
 			finally:
 				exc_type = exc_value = tb = None
@@ -277,16 +280,11 @@ while True:
 	#logfile.write('msg = ' + repr(msg) + '\n')
 	msgType = obj.get('msg')
 	if msgType == 'eval':
-		stmt = obj.get('stmt')
-		try:
+		stmt = objc.get('stmt')
+		with restricted:
 			try:
-				with restricted:
-					result = eval(stmt, restrictedScope)
-					sys.displayhook(result)
+				result = eval(stmt, restrictedScope)
+				sys.displayhook(result)
 			except SyntaxError:
-				with restricted:
-					exec stmt in restrictedScope
-			except:
-				traceback.print_exc()
-		except: pass
+				exec stmt in restrictedScope
 
