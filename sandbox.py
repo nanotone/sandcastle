@@ -280,7 +280,7 @@ while True:
 	#logfile.write('msg = ' + repr(msg) + '\n')
 	msgType = obj.get('msg')
 	if msgType == 'eval':
-		stmt = objc.get('stmt')
+		stmt = obj.get('stmt')
 		with restricted:
 			try:
 				result = eval(stmt, restrictedScope)
