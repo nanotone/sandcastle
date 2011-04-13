@@ -258,13 +258,13 @@ with restricted:
 	execfile(execFilename, restrictedScope)
 if not interactive:
 	exit()
-del restrictedScope['__file__']
 
 print "Python", sys.version
 newSys.ps1 = '>>> '
 newSys.ps2 = '... '
 
 import json
+import struct
 while True:
 	rawLen = sys.stdin.read(2)
 	if len(rawLen) < 2: break
