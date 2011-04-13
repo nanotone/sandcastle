@@ -33,8 +33,10 @@ delDictAttr(types.FrameType, 'f_builtins')
 delDictAttr(types.FrameType, 'f_globals')
 delDictAttr(types.FrameType, 'f_locals')
 
+delDictAttr(types.FunctionType, '__closure__') # >= 2.6
 delDictAttr(types.FunctionType, '__code__') # >= 2.6
 delDictAttr(types.FunctionType, '__globals__') # >= 2.6
+delDictAttr(types.FunctionType, 'func_closure')
 delDictAttr(types.FunctionType, 'func_code')
 delDictAttr(types.FunctionType, 'func_globals')
 
