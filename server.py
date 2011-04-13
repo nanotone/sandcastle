@@ -21,7 +21,7 @@ import struct
 class SocketHandler(tornadio.SocketConnection):
 	def on_open(self, request, **kwargs):
 		print "OPEN", repr(self)
-		self.proc = subprocess.Popen(['python', 'sandbox.py'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+		self.proc = subprocess.Popen(['python', 'sandbox.py', '--pipe'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 		self.procFd = self.proc.stdout.fileno()
 		globalLoop.add_handler(self.procFd, self.procEvent, globalLoop.READ)
 	def procEvent(self, fd, events):
