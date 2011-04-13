@@ -174,6 +174,9 @@ def restrictedOpen(filename, mode='r', bufsize=-1):
 restrictedOpen.func_name = 'open'
 
 
+#
+# context manager for printing sanitized tracebacks
+#
 
 # our replacement for traceback.print_tb which doesn't use FrameType.f_globals
 # copied shamelessly from traceback.py, 4-space indenting and all

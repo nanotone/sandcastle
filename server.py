@@ -1,4 +1,4 @@
-import os.path
+import struct
 import subprocess
 
 import tornado.ioloop
@@ -6,17 +6,6 @@ import tornado.web
 
 import tornadio
 
-class MainHandler(tornado.web.RequestHandler):
-	def get(self):
-		self.write("""<html><head>
-<link rel="stylesheet" href="static/style.css" type="text/css" />
-<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
-<script type="text/javascript" src="/static/Socket.IO/socket.io.js"></script>
-<script type="text/javascript" src="/static/sandcastle.js"></script>
-</head><body><pre id="log"></pre><form id="cmd"><input /></form></body></html>
-""")
-
-import struct
 
 class SocketHandler(tornadio.SocketConnection):
 	def on_open(self, request, **kwargs):
@@ -68,14 +57,8 @@ class SocketHandler(tornadio.SocketConnection):
 			globalLoop.remove_handler(self.procFd)
 			self.procFd = None
 
-application = tornado.web.Application([
-	(r'/sandcastle', MainHandler),
-	tornadio.get_router(SocketHandler).route(),
-],
-	static_path=os.path.join(os.path.dirname(__file__), 'static'),
-)
+application = tornado.web.Application([ tornadio.get_router(SocketHandler).route() ])
 application.listen(5413)
-
 
 globalLoop = tornado.ioloop.IOLoop.instance()
 globalLoop.start()
