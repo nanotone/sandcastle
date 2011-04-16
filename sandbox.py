@@ -274,7 +274,12 @@ srcStr = ''
 if '--pipe' in sys.argv:
 	import json
 	import struct
+	promptStr = newSys.ps1
 	def readObject():
+		ps = newSys.ps1 if not srcStr else newSys.ps2
+		if ps is not promptStr:
+			sandcastle.writeObj({'msg': 'setPrompt', 'ps': ps})
+			promptStr = ps
 		rawLen = sys.stdin.read(2)
 		if len(rawLen) == 2:
 			msgLen = struct.unpack('!H', rawLen)[0]
