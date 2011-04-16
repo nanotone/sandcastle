@@ -270,15 +270,27 @@ print "Python", sys.version
 newSys.ps1 = '>>> '
 newSys.ps2 = '... '
 
-import json
-import struct
+if '--pipe' in sys.argv:
+	import json
+	import struct
+	def readObject():
+		rawLen = sys.stdin.read(2)
+		if len(rawLen) == 2:
+			msgLen = struct.unpack('!H', rawLen)[0]
+			msg = sys.stdin.read(msgLen)
+			if len(msg) == msgLen:
+				obj = json.loads(msg.decode('utf-8'))
+				if obj: return obj
+else:
+	def readObject():
+		sys.__stdout__.write(newSys.ps1)
+		try:
+			return {'msg': 'eval', 'stmt': raw_input()}
+		except EOFError:
+			sys.__stdout__.write('\n')
+
 while True:
-	rawLen = sys.stdin.read(2)
-	if len(rawLen) < 2: break
-	msgLen = struct.unpack('!H', rawLen)[0]
-	msg = sys.stdin.read(msgLen)
-	if len(msg) < msgLen: break
-	obj = json.loads(msg.decode('utf-8'))
+	obj = readObject()
 	if not obj: break
 	#logfile.write('msg = ' + repr(msg) + '\n')
 	msgType = obj.get('msg')
