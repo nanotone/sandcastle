@@ -26,7 +26,7 @@ class SocketHandler(tornadio.SocketConnection):
 			self.send(msg)
 		except EOFError:
 			self.on_close()
-			# TODO: inform client
+			# TODO: inform browser
 	def on_message(self, message):
 		if type(message) is unicode:
 			message = message.encode('utf-8')
@@ -37,25 +37,22 @@ class SocketHandler(tornadio.SocketConnection):
 				self.proc.stdin.flush()
 			except IOError:
 				print "IOError... broken pipe?"
+				globalLoop.remove_handler(self.procFd) # do this early
+				self.procFd = None
 				try:
 					self.proc.kill()
 					self.proc = None
 				finally:
-					self.cleanup()
+					pass # TODO: inform browser
 		else:
 			print "unknown msg", repr(message)
 	def on_close(self):
-		print "CLOSE"
-		self.cleanup()
-	def cleanup(self):
-		if self.proc:
-			self.on_message('0')
-			if self.proc:
-				self.proc.communicate()
-				self.proc = None
 		if self.procFd:
 			globalLoop.remove_handler(self.procFd)
 			self.procFd = None
+		if self.proc:
+			self.on_message('0')
+			self.proc = None # leave it for gc
 
 application = tornado.web.Application([ tornadio.get_router(SocketHandler).route() ])
 application.listen(5413)
