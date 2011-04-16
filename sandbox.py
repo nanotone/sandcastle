@@ -276,6 +276,7 @@ if '--pipe' in sys.argv:
 	import struct
 	promptStr = newSys.ps1
 	def readObject():
+		global promptStr
 		ps = newSys.ps1 if not srcStr else newSys.ps2
 		if ps is not promptStr:
 			sandcastle.writeObj({'msg': 'setPrompt', 'ps': ps})
