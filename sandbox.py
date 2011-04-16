@@ -270,6 +270,7 @@ print "Python", sys.version
 newSys.ps1 = '>>> '
 newSys.ps2 = '... '
 
+srcStr = ''
 if '--pipe' in sys.argv:
 	import json
 	import struct
@@ -283,23 +284,32 @@ if '--pipe' in sys.argv:
 				if obj: return obj
 else:
 	def readObject():
-		sys.__stdout__.write(newSys.ps1)
+		sys.__stdout__.write(newSys.ps1 if not srcStr else newSys.ps2)
 		try:
-			return {'msg': 'eval', 'stmt': raw_input()}
+			return {'msg': 'eval', 'cmd': raw_input()}
 		except EOFError:
 			sys.__stdout__.write('\n')
-
+import code
 while True:
 	obj = readObject()
 	if not obj: break
 	#logfile.write('msg = ' + repr(msg) + '\n')
 	msgType = obj.get('msg')
 	if msgType == 'eval':
-		stmt = obj.get('stmt')
-		with restricted:
+		srcStr += obj['cmd']
+		try:
+			codeObj = code.compile_command(srcStr)
+			if codeObj:
+				with restricted:
+					exec codeObj in restrictedScope
+				srcStr = ''
+			else:
+				srcStr += '\n'
+		except:
 			try:
-				result = eval(stmt, restrictedScope)
-				sys.displayhook(result)
-			except SyntaxError:
-				exec stmt in restrictedScope
+				(exc_type, exc_value) = sys.exc_info()[:2]
+				traceback.print_exception(exc_type, exc_value, None)
+			finally:
+				exc_type = exc_value = None
+			srcStr = ''
 
