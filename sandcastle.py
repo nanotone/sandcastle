@@ -31,9 +31,15 @@ def _namespace():
 			buffer[0] = StringIO.StringIO()
 			buffer[1] = None
 		class Stdout(object):
-			def write(self, s): queueStr(s)
+			def write(self, s):
+				if type(s) not in (str, unicode, buffer):
+					raise TypeError("argument 1 must be string or read-only character buffer, not " + type(s).__name__)
+				queueStr(s)
 		class Stderr(object):
-			def write(self, s): queueStr(s, 2)
+			def write(self, s):
+				if type(s) not in (str, unicode, buffer):
+					raise TypeError("argument 1 must be string or read-only character buffer, not " + type(s).__name__)
+				queueStr(s, 2)
 		sys.stdout = Stdout()
 		sys.stderr = Stderr()
 	else:
