@@ -9,7 +9,7 @@ def _namespace():
 		def writeObj(obj):
 			bytes = json.dumps(obj, ensure_ascii=False).encode('utf-8')
 			sys.__stdout__.write(struct.pack('!H', len(bytes)))
-			sys.__stdout__.write(bytes + '\n')
+			sys.__stdout__.write(bytes)
 			sys.__stdout__.flush()
 		buffer = [StringIO.StringIO(), None]
 		queueLock = threading.Lock()
