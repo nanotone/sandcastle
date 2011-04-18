@@ -8,6 +8,7 @@ interactive = ('--interactive' in sys.argv)
 if not (execFilename or interactive): exit()
 
 
+import __builtin__
 import ctypes
 import linecache
 import traceback
@@ -120,7 +121,7 @@ newSys = types.ModuleType('sys')
 loadRestrictedModule(sys, newSys, restrictedModules['sys'])
 newSys.modules = {'sys': newSys}
 
-oldImport = __builtins__.__import__
+oldImport = __builtin__.__import__
 def __import__(name, g=None, l=None, fromlist=None, level=-1):
 	tokens = name.split('.')
 	module = newSys.modules.get(tokens[0])
@@ -240,10 +241,10 @@ restricted = Restricted()
 # new locals/globals namespace
 #
 
-restrictedBuiltins = types.ModuleType('__builtins__')
+newSys.modules['__builtin__'] = restrictedBuiltins = types.ModuleType('__builtin__')
 
 for allowedAttr in ('ArithmeticError', 'AssertionError', 'AttributeError', 'BaseException', 'BufferError', 'BytesWarning', 'DeprecationWarning', 'EOFError', 'Ellipsis', 'EnvironmentError', 'Exception', 'False', 'FloatingPointError', 'FutureWarning', 'GeneratorExit', 'IOError', 'ImportError', 'ImportWarning', 'IndentationError', 'IndexError', 'KeyError', 'KeyboardInterrupt', 'LookupError', 'MemoryError', 'NameError', 'None', 'NotImplemented', 'NotImplementedError', 'OSError', 'OverflowError', 'PendingDeprecationWarning', 'ReferenceError', 'RuntimeError', 'RuntimeWarning', 'StandardError', 'StopIteration', 'SyntaxError', 'SyntaxWarning', 'SystemError', 'SystemExit', 'TabError', 'True', 'TypeError', 'UnboundLocalError', 'UnicodeDecodeError', 'UnicodeEncodeError', 'UnicodeError', 'UnicodeTranslateError', 'UnicodeWarning', 'UserWarning', 'ValueError', 'Warning', 'ZeroDivisionError', '__debug__', '__doc__', '__package__', 'abs', 'all', 'any', 'apply', 'basestring', 'bin', 'bool', 'buffer', 'bytearray', 'bytes', 'callable', 'chr', 'classmethod', 'cmp', 'coerce', 'complex', 'copyright', 'credits', 'delattr', 'dict', 'dir', 'divmod', 'enumerate', 'eval', 'exit', 'filter', 'float', 'format', 'frozenset', 'getattr', 'globals', 'hasattr', 'hash', 'hex', 'id', 'int', 'intern', 'isinstance', 'issubclass', 'iter', 'len', 'license', 'list', 'locals', 'long', 'map', 'max', 'min', 'next', 'object', 'oct', 'open', 'ord', 'pow', 'print', 'property', 'quit', 'range', 'reduce', 'repr', 'reversed', 'round', 'set', 'setattr', 'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super', 'tuple', 'type', 'unichr', 'unicode', 'vars', 'xrange', 'zip'):
-	setattr(restrictedBuiltins, allowedAttr, getattr(__builtins__, allowedAttr))
+	setattr(restrictedBuiltins, allowedAttr, getattr(__builtin__, allowedAttr))
 
 def notImplemented(*args, **kwargs): raise NotImplementedError
 for disabledFunc in ('compile', 'execfile', 'help', 'input', 'raw_input', 'reload'):
@@ -304,7 +305,7 @@ while True:
 	if msgType == 'eval':
 		srcStr += obj['cmd']
 		try:
-			codeObj = code.compile_command(srcStr)
+			codeObj = code.compile_command(srcStr, '<stdin>')
 			if codeObj:
 				with restricted:
 					exec codeObj in restrictedScope
