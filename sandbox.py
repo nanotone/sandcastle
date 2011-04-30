@@ -14,10 +14,11 @@ import linecache
 import traceback
 import types
 
-import sandcastle
+import protocol
+
 
 #
-# new __import__
+# sanitize some properties of a few builtin types
 #
 
 getDict = ctypes.pythonapi._PyObject_GetDictPtr
@@ -39,7 +40,7 @@ delDictAttr(types.CodeType, 'co_names')
 delDictAttr(types.CodeType, 'co_varnames')
 
 delDictAttr(types.FrameType, 'f_builtins')
-#delDictAttr(types.FrameType, 'f_code')
+#delDictAttr(types.FrameType, 'f_code') # this seems okay to leave in
 delDictAttr(types.FrameType, 'f_globals')
 delDictAttr(types.FrameType, 'f_locals')
 
@@ -53,7 +54,11 @@ delDictAttr(types.FunctionType, 'func_globals')
 delDictAttr(types.GeneratorType, 'gi_code') # >= 2.6
 delDictAttr(types.GeneratorType, 'gi_frame')
 
+
+#
 # restrict importing modules
+#
+
 allowedModules = set((
 	'string', 're', 'sre_compile', 'sre_parse', '_sre', 'sre_constants', 'strop', 'struct', '_struct',
 		'StringIO', 'cStringIO', 'textwrap', 'encodings', 'unicodedata', 'stringprep', # 7
@@ -66,7 +71,7 @@ allowedModules = set((
 	'json', 'base64', 'binascii', # 18
 	'xml',
 	#'traceback', # super dangerous, never allow this
-	'sandcastle',
+	'protocol', 'sandcastle',
 ))
 restrictedModules = {
 	'types': (
@@ -280,7 +285,7 @@ if '--pipe' in sys.argv:
 		global promptStr
 		ps = newSys.ps1 if not srcStr else newSys.ps2
 		if ps is not promptStr:
-			sandcastle.writeObj({'msg': 'setPrompt', 'ps': ps})
+			protocol.writeObj({'msg': 'setPrompt', 'ps': ps})
 			promptStr = ps
 		rawLen = sys.stdin.read(2)
 		if len(rawLen) == 2:
