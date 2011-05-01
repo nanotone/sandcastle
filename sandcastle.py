@@ -57,7 +57,7 @@ class _NodeList(list):
 		if type(key) is int: nodes = (nodes,)
 		for node in nodes: node.parent = None
 		list.__delitem__(self, key)
-		writeObj({'msg': 'children', 'parent': self._owner.id, 'children': [node.id for node in self]})
+		writeObj({'msg': 'setChildren', 'parent': self._owner.id, 'children': [node.id for node in self]})
 
 	def __delslice__(self, i, j):
 		return self.__delitem__(slice(i, j))
@@ -91,7 +91,7 @@ class _NodeList(list):
 			node.parent = None
 		for node in self:
 			node.parent = self._owner
-		writeObj({'msg': 'children', 'parent': self._owner.id, 'children': [node.id for node in self]})
+		writeObj({'msg': 'setChildren', 'parent': self._owner.id, 'children': [node.id for node in self]})
 
 	def __setslice__(self, i, j, sequence): # because py2.* is dumb, even though this is deprecated in 2.0
 		return self.__setitem__(slice(i, j), sequence)
@@ -144,11 +144,11 @@ class _NodeList(list):
 
 	def reverse(self):
 		list.reverse(self)
-		writeObj({'msg': 'children', 'parent': self._owner.id, 'children': [node.id for node in self]})
+		writeObj({'msg': 'setChildren', 'parent': self._owner.id, 'children': [node.id for node in self]})
 
 	def sort(cmp=None, key=None, reverse=False):
 		list.sort(cmp, key, reverse)
-		writeObj({'msg': 'children', 'parent': self._owner.id, 'children': [node.id for node in self]})
+		writeObj({'msg': 'setChildren', 'parent': self._owner.id, 'children': [node.id for node in self]})
 
 
 class _Complex(_Element):
