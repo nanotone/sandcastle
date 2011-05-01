@@ -10,9 +10,17 @@ import tornadio
 class SocketHandler(tornadio.SocketConnection):
 	def on_open(self, request, **kwargs):
 		print "OPEN", repr(self)
-		self.proc = subprocess.Popen(['python', 'sandbox.py', '--interactive', '--pipe'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+		self.started = False
+		self.proc = None
+		self.procFd = 0
+	def start(self, clientScript=None):
+		cmd = ['python', 'sandbox.py', '--interactive', '--pipe']
+		if clientScript:
+			cmd.append(clientScript)
+		self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 		self.procFd = self.proc.stdout.fileno()
 		globalLoop.add_handler(self.procFd, self.procEvent, globalLoop.READ)
+		self.started = True
 	def procEvent(self, fd, events):
 		assert fd == self.procFd
 		try:
@@ -22,7 +30,7 @@ class SocketHandler(tornadio.SocketConnection):
 			msg = self.proc.stdout.read(msgLen)
 			if len(msg) != msgLen: raise EOFError
 			msg = msg.decode('utf-8')
-			print "sending", msg, "to client"
+			print "sending", msg
 			self.send(msg)
 		except EOFError:
 			self.on_close()
@@ -31,6 +39,10 @@ class SocketHandler(tornadio.SocketConnection):
 		if type(message) is unicode:
 			message = message.encode('utf-8')
 		if type(message) is str:
+			print "received %r" % message
+			if not self.started:
+				self.start(message)
+				return
 			try:
 				self.proc.stdin.write(struct.pack('!H', len(message)))
 				self.proc.stdin.write(message)
@@ -47,6 +59,7 @@ class SocketHandler(tornadio.SocketConnection):
 		else:
 			print "unknown msg", repr(message)
 	def on_close(self):
+		print "CLOSE", repr(self)
 		if self.procFd:
 			globalLoop.remove_handler(self.procFd)
 			self.procFd = None
