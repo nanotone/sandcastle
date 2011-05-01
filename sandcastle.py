@@ -155,17 +155,23 @@ class _Complex(_Element):
 
 	def __init__(self, *nodes, **kwargs):
 		_Element.__init__(self, **kwargs)
-		self.children = _NodeList(self)
+		object.__setattr__(self, 'children', _NodeList(self))
 		self.children.extend(nodes) # TODO: initial self.add's can skip dupe checks
 
 	def __enter__(self):
 		global _defaultContainer
-		self._defaultContainer = _defaultContainer
+		object.__setattr__(self, '_defaultContainer', _defaultContainer)
 		_defaultContainer = self
 
 	def __exit__(self, exc_type, exc_value, tb):
 		global _defaultContainer
 		_defaultContainer = self._defaultContainer
+
+	def __setattr__(self, name, value):
+		if name == 'children':
+			self.children[:] = value
+		else:
+			object.__setattr__(self, name, value)
 
 	def add(self, node):
 		try: self.children.remove(node)
