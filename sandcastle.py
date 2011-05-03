@@ -1,4 +1,14 @@
-from protocol import writeObj
+import weakref
+
+import protocol
+
+
+_elements = weakref.WeakValueDictionary()
+def eventHandlerHook(msg):
+	try:
+		_elements[msg['id']].triggerEvent(msg['type'])
+	except: pass
+protocol.addMessageHook('event', eventHandlerHook)
 
 
 class _Element(object):
@@ -8,21 +18,52 @@ class _Element(object):
 		assert self.__class__ is not _Element
 		self.id = _Element._nextId
 		self.parent = None
+		self.eventListeners = None
 		_Element._nextId += 1
+		_elements[self.id] = self
 		if self.id:
-			writeObj({'msg': 'create', 'id': self.id, 'type': self.__class__.__name__})
+			protocol.writeObj({'msg': 'create', 'id': self.id, 'type': self.__class__.__name__})
 		if not kwargs.get('detached'):
 			_defaultContainer.children.append(self)
+
+	def __del__(self):
+		protocol.writeObj({'msg': 'del', 'id': self.id})
+
+	def __repr__(self):
+		return "<%s Element %d>" % (self.__class__.__name__, self.id)
+
+	def click(self, cb):
+		if not callable(cb):
+			raise TypeError()
+		if not self.eventListeners:
+			self.eventListeners = {'click': [cb]}
+			protocol.writeObj({'msg': 'listen', 'id': self.id})
+		else:
+			listeners = self.eventListeners.get('click')
+			if not listeners:
+				self.eventListeners['click'] = listeners = [cb]
+			elif cb not in listeners: listeners.append(cb)
+
+	def triggerEvent(self, eventType):
+		for cb in self.eventListeners.get(eventType, ()): cb()
+
+	def removeEventListener(self, eventType, cb=None):
+		eventListeners = self.eventListeners.get(eventType)
+		if not eventListeners: return # no listeners for eventType
+		if not cb:
+			del self.eventListeners[eventType]
+		else:
+			try:
+				eventListeners.remove(cb)
+			except: return
+			if not eventListeners:
+				del self.eventListeners[eventType]
+		if not self.eventListeners:
+			protocol.writeObj({'msg': 'unlisten', 'id': self.id})
 
 	def removeFromParent(self):
 		self.parent.children.remove(self)
 		return self
-
-	def __del__(self):
-		writeObj({'msg': 'del', 'id': self.id})
-
-	def __repr__(self):
-		return "<%s Element %d>" % (self.__class__.__name__, self.id)
 
 
 class _Simple(_Element):
@@ -38,7 +79,7 @@ class _Simple(_Element):
 				self._text = unicode(text)
 			except UnicodeDecodeError:
 				self._text = text.decode('latin-1')
-			writeObj({'msg': 'text', 'id': self.id, 'text': self._text})
+			protocol.writeObj({'msg': 'text', 'id': self.id, 'text': self._text})
 		return self._text
 
 	def __repr__(self):
@@ -57,7 +98,7 @@ class _NodeList(list):
 		if type(key) is int: nodes = (nodes,)
 		for node in nodes: node.parent = None
 		list.__delitem__(self, key)
-		writeObj({'msg': 'setChildren', 'parent': self._owner.id, 'children': [node.id for node in self]})
+		protocol.writeObj({'msg': 'setChildren', 'parent': self._owner.id, 'children': [node.id for node in self]})
 
 	def __delslice__(self, i, j):
 		return self.__delitem__(slice(i, j))
@@ -91,7 +132,7 @@ class _NodeList(list):
 			node.parent = None
 		for node in self:
 			node.parent = self._owner
-		writeObj({'msg': 'setChildren', 'parent': self._owner.id, 'children': [node.id for node in self]})
+		protocol.writeObj({'msg': 'setChildren', 'parent': self._owner.id, 'children': [node.id for node in self]})
 
 	def __setslice__(self, i, j, sequence): # because py2.* is dumb, even though this is deprecated in 2.0
 		return self.__setitem__(slice(i, j), sequence)
@@ -126,7 +167,7 @@ class _NodeList(list):
 		elif index > len(self): index = len(self)
 		list.insert(self, index, obj) # commit
 		obj.parent = self._owner
-		writeObj({'msg': 'add', 'parent': self._owner.id, 'index': index, 'child': obj.id})
+		protocol.writeObj({'msg': 'add', 'parent': self._owner.id, 'index': index, 'child': obj.id})
 		#self[index:index] = obj # pydoc: definition 5.6.4
 
 	def pop(self, index=-1):
@@ -134,7 +175,7 @@ class _NodeList(list):
 		except IndexError: raise IndexError("pop index out of range")
 		list.__delitem__(self, index)
 		child.parent = None
-		writeObj({'msg': 'remove', 'id': child.id})
+		protocol.writeObj({'msg': 'remove', 'id': child.id})
 		return child
 
 	def remove(self, value):
@@ -144,11 +185,11 @@ class _NodeList(list):
 
 	def reverse(self):
 		list.reverse(self)
-		writeObj({'msg': 'setChildren', 'parent': self._owner.id, 'children': [node.id for node in self]})
+		protocol.writeObj({'msg': 'setChildren', 'parent': self._owner.id, 'children': [node.id for node in self]})
 
 	def sort(cmp=None, key=None, reverse=False):
 		list.sort(cmp, key, reverse)
-		writeObj({'msg': 'setChildren', 'parent': self._owner.id, 'children': [node.id for node in self]})
+		protocol.writeObj({'msg': 'setChildren', 'parent': self._owner.id, 'children': [node.id for node in self]})
 
 
 class _Complex(_Element):
@@ -200,6 +241,7 @@ Emph = Emphasis
 
 root = Stack(detached=True)
 _defaultContainer = root
+
 
 
 if __name__ == '__main__': pass

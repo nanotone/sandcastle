@@ -266,15 +266,16 @@ restrictedScope = {
 	'__package__': None
 }
 
+
 if execFilename:
 	with restricted:
 		execfile(execFilename, restrictedScope)
 if not interactive:
 	exit()
-
 print "Python", sys.version
 newSys.ps1 = '>>> '
 newSys.ps2 = '... '
+
 
 srcStr = ''
 if '--pipe' in sys.argv:
@@ -302,27 +303,31 @@ else:
 			return {'msg': 'eval', 'cmd': raw_input()}
 		except EOFError:
 			sys.__stdout__.write('\n')
+
 import code
+def evalCmd(msg):
+	global srcStr
+	srcStr += msg['cmd']
+	try:
+		codeObj = code.compile_command(srcStr, '<stdin>')
+		if codeObj:
+			with restricted: exec codeObj in restrictedScope
+			srcStr = ''
+		else:
+			srcStr += '\n'
+	except:
+		try:
+			(exc_type, exc_value) = sys.exc_info()[:2]
+			traceback.print_exception(exc_type, exc_value, None)
+		finally:
+			exc_type = exc_value = None
+		srcStr = ''
+protocol.addMessageHook('eval', evalCmd)
+
+
 while True:
 	obj = readObject()
 	if not obj: break
 	#logfile.write('msg = ' + repr(msg) + '\n')
-	msgType = obj.get('msg')
-	if msgType == 'eval':
-		srcStr += obj['cmd']
-		try:
-			codeObj = code.compile_command(srcStr, '<stdin>')
-			if codeObj:
-				with restricted:
-					exec codeObj in restrictedScope
-				srcStr = ''
-			else:
-				srcStr += '\n'
-		except:
-			try:
-				(exc_type, exc_value) = sys.exc_info()[:2]
-				traceback.print_exception(exc_type, exc_value, None)
-			finally:
-				exc_type = exc_value = None
-			srcStr = ''
+	protocol.dispatchMessage(obj)
 
