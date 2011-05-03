@@ -219,12 +219,15 @@ class TracebackPrinter(object):
 	def __init__(self):
 		self.skipLines = 0
 	def write(self, s):
-		if s.startswith('  File "sandbox.py",'):
+		if s.startswith('  File "%s",' % __file__) or 'protocol.py", line' in s:
 			self.skipLines = 2
 		if self.skipLines:
 			self.skipLines -= 1
-		else:
-			sys.stderr.write(s)
+			return
+		if 'RuntimeError' in s:
+			s = s.replace('maximum recursion depth exceeded while calling a Python object',
+			              'maximum recursion depth exceeded')
+		sys.stderr.write(s)
 class Restricted(object):
 	@staticmethod
 	def __enter__(): pass
@@ -265,6 +268,7 @@ restrictedScope = {
 	'__doc__': None,
 	'__package__': None
 }
+sys.setrecursionlimit(50) # reasonable for newbies... right?
 
 
 if execFilename:
