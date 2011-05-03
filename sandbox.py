@@ -292,8 +292,9 @@ if '--pipe' in sys.argv:
 			msgLen = struct.unpack('!H', rawLen)[0]
 			msg = sys.stdin.read(msgLen)
 			if len(msg) == msgLen:
-				obj = json.loads(msg.decode('utf-8'))
-				if obj: return obj
+				try:
+					return json.loads(msg.decode('utf-8'))
+				except: pass
 else:
 	def readObject():
 		sys.__stdout__.write(newSys.ps1 if not srcStr else newSys.ps2)
