@@ -12,35 +12,31 @@ def _namespace():
 			sys.__stdout__.write(struct.pack('!H', len(bytes)))
 			sys.__stdout__.write(bytes)
 			sys.__stdout__.flush()
-		buf = [StringIO.StringIO(), None]
+		buf = [None]
 		queueLock = threading.Lock()
-		def queueStr(s, streamFd=1):
-			with queueLock:
-				if not buf[1]:
-					threading.Timer(0.01, checkFlushStr).start()
-				elif streamFd != buf[1]:
-					flushStr()
-				buf[0].write(s)
-				buf[1] = streamFd
-		def checkFlushStr():
-			with queueLock: flushStr()
 		def flushStr():
-			if buf[1] == 1:
-				writeObj({'msg': 'eval', 'result': buf[0].getvalue()})
-			else:
-				writeObj({'msg': 'error', 'str': buf[0].getvalue()})
-			buf[0] = StringIO.StringIO()
-			buf[1] = None
+			with queueLock:
+				if buf[0]:
+					writeObj({'msg': 'eval', 'result': buf[0].getvalue()})
+					buf[0] = None
 		class Stdout(object):
 			def write(self, s):
 				if type(s) not in (str, unicode, buffer):
 					raise TypeError("argument 1 must be string or read-only character buffer, not " + type(s).__name__)
-				queueStr(s)
+				with queueLock:
+					if not buf[0]:
+						threading.Timer(0.010, flushStr).start()
+						buf[0] = StringIO.StringIO()
+					buf[0].write(s)
 		class Stderr(object):
 			def write(self, s):
 				if type(s) not in (str, unicode, buffer):
 					raise TypeError("argument 1 must be string or read-only character buffer, not " + type(s).__name__)
-				queueStr(s, 2)
+				with queueLock:
+					if buf[0]:
+						writeObj({'msg': 'eval', 'result': buf[0].getvalue()})
+						buf[0] = None
+				writeObj({'msg': 'error', 'str': s})
 		sys.stdout = Stdout()
 		sys.stderr = Stderr()
 	else:
