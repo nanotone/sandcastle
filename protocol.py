@@ -12,25 +12,25 @@ def _namespace():
 			sys.__stdout__.write(struct.pack('!H', len(bytes)))
 			sys.__stdout__.write(bytes)
 			sys.__stdout__.flush()
-		buffer = [StringIO.StringIO(), None]
+		buf = [StringIO.StringIO(), None]
 		queueLock = threading.Lock()
 		def queueStr(s, streamFd=1):
 			with queueLock:
-				if not buffer[1]:
+				if not buf[1]:
 					threading.Timer(0.01, checkFlushStr).start()
-				elif streamFd != buffer[1]:
+				elif streamFd != buf[1]:
 					flushStr()
-				buffer[0].write(s)
-				buffer[1] = streamFd
+				buf[0].write(s)
+				buf[1] = streamFd
 		def checkFlushStr():
 			with queueLock: flushStr()
 		def flushStr():
-			if buffer[1] == 1:
-				writeObj({'msg': 'eval', 'result': buffer[0].getvalue()})
+			if buf[1] == 1:
+				writeObj({'msg': 'eval', 'result': buf[0].getvalue()})
 			else:
-				writeObj({'msg': 'error', 'str': buffer[0].getvalue()})
-			buffer[0] = StringIO.StringIO()
-			buffer[1] = None
+				writeObj({'msg': 'error', 'str': buf[0].getvalue()})
+			buf[0] = StringIO.StringIO()
+			buf[1] = None
 		class Stdout(object):
 			def write(self, s):
 				if type(s) not in (str, unicode, buffer):
@@ -46,8 +46,30 @@ def _namespace():
 	else:
 		def writeObj(obj):
 			print json.dumps(obj, ensure_ascii=False).encode('utf-8')
+
+
+	messageHooks = {}
+	def addMessageHook(msgType, hook):
+		if not callable(hook): raise TypeError("'%s' object is not callable" % type(hook).__name__)
+		hooks = messageHooks.get(msgType)
+		if hooks is None:
+			messageHooks[msgType] = hooks = [hook]
+		elif hook not in hooks:
+			hooks.append(hook)
+	def removeMessageHook(msgType, hook):
+		hooks = messageHooks.get(msgType)
+		if hooks:
+			try: hooks.remove(hook)
+			except: pass
+	def dispatchMessage(msg):
+		for hook in messageHooks.get(msg.get('msg'), ()):
+			hook(msg)
+
 	g = globals()
 	g['writeObj'] = writeObj
+	g['addMessageHook'] = addMessageHook
+	g['removeMessageHook'] = removeMessageHook
+	g['dispatchMessage'] = dispatchMessage
 
 _namespace()
 del _namespace
