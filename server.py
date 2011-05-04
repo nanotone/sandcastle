@@ -49,13 +49,14 @@ class SocketHandler(tornadio.SocketConnection):
 				self.proc.stdin.flush()
 			except IOError:
 				print "IOError... broken pipe?"
-				globalLoop.remove_handler(self.procFd) # do this early
-				self.procFd = None
+				try:
+					globalLoop.remove_handler(self.procFd) # do this early
+				finally:
+					self.procFd = None
 				try:
 					self.proc.kill()
-					self.proc = None
 				finally:
-					pass # TODO: inform browser
+					self.proc = None # TODO: inform browser
 		else:
 			print "unknown msg", repr(message)
 	def on_close(self):
