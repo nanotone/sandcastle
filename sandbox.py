@@ -11,6 +11,7 @@ if not (execFilename or interactive): exit()
 import __builtin__
 import ctypes
 import linecache
+import os
 import traceback
 import types
 
@@ -110,7 +111,8 @@ restrictedModules = {
 	),
 }
 
-def loadRestrictedModule(src, dst, variables):
+def loadRestrictedModule(src, dst, variables, fullname):
+	newSys.modules[fullname] = dst
 	for key in ('__doc__', '__name__', '__package__'):
 		setattr(dst, key, getattr(src, key))
 	for key in variables[0]:
@@ -119,20 +121,34 @@ def loadRestrictedModule(src, dst, variables):
 		srcVar = getattr(src, key)
 		assert type(srcVar) is types.ModuleType
 		submodule = types.ModuleType(key)
-		loadRestrictedModule(srcVar, submodule, value)
+		loadRestrictedModule(srcVar, submodule, value, '%s.%s' % (fullname, key))
 		setattr(dst, key, submodule)
 
 newSys = types.ModuleType('sys')
-loadRestrictedModule(sys, newSys, restrictedModules['sys'])
-newSys.modules = {'sys': newSys}
+newSys.modules = {}
+loadRestrictedModule(sys, newSys, restrictedModules['sys'], 'sys')
 
 oldImport = __builtin__.__import__
 def __import__(name, g=None, l=None, fromlist=None, level=-1):
+	existingModule = newSys.modules.get(name)
+	if existingModule:
+		return existingModule
 	tokens = name.split('.')
 	module = newSys.modules.get(tokens[0])
 	if not module:
 		#print "import", name
-		if tokens[0] in allowedModules:
+		try:
+			sitePkgs = os.listdir('site-packages')
+		except OSError:
+			sitePkgs = []
+		filename = tokens[0] + '.py'
+		if filename in sitePkgs:
+			module = types.ModuleType(tokens[0])
+			newSys.modules[tokens[0]] = module
+			module.__file__ = filename
+			module.__dict__['__builtins__'] = restrictedBuiltins
+			execfile('site-packages/' + filename, module.__dict__)
+		elif tokens[0] in allowedModules:
 			module = oldImport(name, g, l, fromlist, level)
 		else:
 			restrictedVars = restrictedModules.get(tokens[0])
