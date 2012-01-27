@@ -331,7 +331,17 @@ def evalCmd(msg):
 	try:
 		codeObj = code.compile_command(srcStr, '<stdin>')
 		if codeObj:
-			with restricted: exec codeObj in restrictedScope
+			try:
+				# if srcStr is an expr, eval it and store any non-None result in _
+				codeObj = code.compile_command(srcStr, '<stdin>', 'eval')
+				with restricted:
+					result = eval(codeObj, restrictedScope)
+					if result is not None:
+						print repr(result)
+						restrictedScope['_'] = result
+			except SyntaxError:
+				# non-expressions are just exec'd and have no effect on _
+				with restricted: exec codeObj in restrictedScope
 			srcStr = ''
 		else:
 			srcStr += '\n'
