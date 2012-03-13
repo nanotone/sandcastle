@@ -155,7 +155,7 @@ def __import__(name, g=None, l=None, fromlist=None, level=-1):
 			if not restrictedVars:
 				raise ImportError("No module named " + tokens[0])
 			module = types.ModuleType(tokens[0])
-			loadRestrictedModule(oldImport(name, g, l, fromlist, level), module, restrictedVars)
+			loadRestrictedModule(oldImport(name, g, l, fromlist, level), module, restrictedVars, name)
 		newSys.modules[tokens[0]] = module
 	submodule = module
 	for token in tokens[1:]: # make sure submodules exist
