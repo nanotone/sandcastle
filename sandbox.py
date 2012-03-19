@@ -334,6 +334,8 @@ def evalCmd(msg):
 			try:
 				# if srcStr is an expr, eval it and store any non-None result in _
 				codeObj = code.compile_command(srcStr, '<stdin>', 'eval')
+				if codeObj is None: # empty line
+					return
 				with restricted:
 					result = eval(codeObj, restrictedScope)
 					if result is not None:
