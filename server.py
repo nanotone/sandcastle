@@ -1,8 +1,12 @@
-import struct
+import json
 import subprocess
 
 import tornado.ioloop
 import tornado.web
+import tornado.websocket
+
+# temporarily allow draft76 while browsers catch up
+tornado.websocket.WebSocketHandler.allow_draft76 = (lambda self: True)
 
 import tornadio
 
@@ -14,7 +18,7 @@ class SocketHandler(tornadio.SocketConnection):
 		self.proc = None
 		self.procFd = 0
 	def start(self, clientScript=None):
-		cmd = ['python', 'sandbox.py', '--interactive', '--pipe']
+		cmd = ['python', 'sandbox.py']
 		if clientScript:
 			cmd.append(clientScript)
 		self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -24,39 +28,30 @@ class SocketHandler(tornadio.SocketConnection):
 	def procEvent(self, fd, events):
 		assert fd == self.procFd
 		try:
-			msgLen = self.proc.stdout.read(2)
-			if len(msgLen) != 2: raise EOFError
-			msgLen = struct.unpack('!H', msgLen)[0]
-			msg = self.proc.stdout.read(msgLen)
-			if len(msg) != msgLen: raise EOFError
-			msg = msg.decode('utf-8')
-			print "sending", msg
-			self.send(msg)
-		except EOFError:
+			self.send(self.proc.stdout.readline())
+		except (EOFError, IOError, ValueError):
 			self.on_close()
 			# TODO: inform browser
 	def on_message(self, message):
-		if type(message) is unicode:
-			message = message.encode('utf-8')
-		if type(message) is str:
+		if isinstance(message, basestring):
 			print "received %r" % message
 			if not self.started:
 				self.start(message)
 				return
 			try:
-				self.proc.stdin.write(struct.pack('!H', len(message)))
-				self.proc.stdin.write(message)
+				self.proc.stdin.write(message + '\n')
 				self.proc.stdin.flush()
 			except IOError:
 				print "IOError... broken pipe?"
-				try:
-					globalLoop.remove_handler(self.procFd) # do this early
-				finally:
-					self.procFd = None
+				if self.procFd:
+					try:
+						globalLoop.remove_handler(self.procFd)  # do this early
+					finally:
+						self.procFd = None
 				try:
 					self.proc.kill()
 				finally:
-					self.proc = None # TODO: inform browser
+					self.proc = None  # TODO: inform browser
 		else:
 			print "unknown msg", repr(message)
 	def on_close(self):
@@ -65,7 +60,7 @@ class SocketHandler(tornadio.SocketConnection):
 			globalLoop.remove_handler(self.procFd)
 			self.procFd = None
 		if self.proc:
-			self.on_message('0')
+			self.on_message('.')
 			self.proc = None # leave it for gc
 
 application = tornado.web.Application([ tornadio.get_router(SocketHandler).route() ])

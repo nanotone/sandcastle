@@ -1,22 +1,21 @@
-import sys
-
-execFilename = sys.argv[-1]
-if not (execFilename[0].isalpha() and execFilename.endswith('.py')):
-	execFilename = None
-interactive = ('--interactive' in sys.argv)
-
-if not (execFilename or interactive): exit()
-
-
 import __builtin__
+import code
 import ctypes
+import json
 import linecache
 import os
+import sys
 import traceback
 import types
+if sys.stdin.isatty():
+	import readline
 
 import protocol
 
+
+execFilename = sys.argv[-1]
+if not (len(sys.argv) > 1 and execFilename.endswith('.py')):
+	execFilename = None
 
 #
 # sanitize some properties of a few builtin types
@@ -290,41 +289,28 @@ sys.setrecursionlimit(50) # reasonable for newbies... right?
 if execFilename:
 	with restricted:
 		execfile(execFilename, restrictedScope)
-if not interactive:
-	exit()
 print "Python", sys.version
 newSys.ps1 = '>>> '
 newSys.ps2 = '... '
 
 
 srcStr = ''
-if '--pipe' in sys.argv:
-	import json
-	import struct
-	promptStr = newSys.ps1
-	def readObject():
-		global promptStr
-		ps = newSys.ps1 if not srcStr else newSys.ps2
-		if ps is not promptStr:
-			protocol.writeObj({'msg': 'setPrompt', 'ps': ps})
-			promptStr = ps
-		rawLen = sys.stdin.read(2)
-		if len(rawLen) == 2:
-			msgLen = struct.unpack('!H', rawLen)[0]
-			msg = sys.stdin.read(msgLen)
-			if len(msg) == msgLen:
-				try:
-					return json.loads(msg.decode('utf-8'))
-				except: pass
-else:
-	def readObject():
-		sys.__stdout__.write(newSys.ps1 if not srcStr else newSys.ps2)
-		try:
-			return {'msg': 'eval', 'cmd': raw_input()}
-		except EOFError:
-			sys.__stdout__.write('\n')
+promptStr = newSys.ps1
+def readObject():
+	global promptStr
+	ps = newSys.ps1 if not srcStr else newSys.ps2
+	if ps is not promptStr:
+		protocol.writeObj({'msg': 'setPrompt', 'ps': ps})
+		promptStr = ps
+	msg = raw_input()
+	assert msg != '.'
+	try:
+		obj = json.loads(msg)
+		assert type(obj) is dict
+		return obj
+	except:
+		return {'msg': 'eval', 'cmd': msg}
 
-import code
 def evalCmd(msg):
 	global srcStr
 	srcStr += msg['cmd']
@@ -358,8 +344,7 @@ protocol.addMessageHook('eval', evalCmd)
 
 
 while True:
-	obj = readObject()
-	if not obj: break
-	#logfile.write('msg = ' + repr(msg) + '\n')
-	protocol.dispatchMessage(obj)
-
+	try:
+		protocol.dispatchMessage(readObject())
+	except:
+		break
